@@ -1,0 +1,100 @@
+;
+; This file is part of the Traintastic CS RP2040 firmware,
+; see <https://github.com/traintastic/traintastic-cs-rp2040>.
+;
+; Copyright (C) 2024 Reinder Feenstra
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation; either version 2
+; of the License, or (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+.program xpressnet_rx
+
+  wait 0 pin 0        ; Wait for start bit
+  set x, 8 [10]       ; Preload bit counter, delay until eye of first data bit
+bitloop:              ; Loop 9 times
+  in pins, 1          ; Sample data
+  jmp x-- bitloop [6] ; Each iteration is 8 cycles
+
+.program xpressnet_tx
+.side_set 1 opt
+
+; XpressNet is 9N1 9th bit is used for address(1)/data(0) bit aka multidrop.
+
+; OUT pin 0 and side-set pin 0 are both mapped to UART TX pin.
+
+  pull       side 1 [7]  ; Assert stop bit, or stall with line in idle state
+  set x, 8   side 0 [7]  ; Preload bit counter, assert start bit for 8 clocks
+bitloop:                   ; This loop will run 9 times
+  out pins, 1            ; Shift 1 bit from OSR to the first OUT pin
+  jmp x-- bitloop   [6]  ; Each loop iteration is 8 cycles.
+
+% c-sdk {
+#include <hardware/clocks.h>
+
+#define XPRESSNET_BAUDRATE 62500
+
+static inline void xpressnet_rx_program_init(PIO pio, uint sm, uint pin)
+{
+  pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
+  pio_gpio_init(pio, pin);
+  gpio_pull_up(pin);
+
+  uint offset = pio_add_program(pio, &xpressnet_rx_program);
+  pio_sm_config c = xpressnet_rx_program_get_default_config(offset);
+  sm_config_set_in_pins(&c, pin); // for WAIT, IN
+  // Shift to right, autopush enabled
+  sm_config_set_in_shift(&c, true, true, 9);
+  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+  // SM transmits 1 bit per 8 execution cycles.
+  float div = (float)clock_get_hz(clk_sys) / (8 * XPRESSNET_BAUDRATE);
+  sm_config_set_clkdiv(&c, div);
+
+  pio_sm_init(pio, sm, offset, &c);
+  pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline void xpressnet_tx_program_init(PIO pio, uint sm, uint pin, uint pin_en)
+{
+  // Tell PIO to initially drive output-high on the selected pin, then map PIO
+  // onto that pin with the IO muxes.
+  const auto mask = (1u << pin);// | (1u << pin_en);
+  pio_sm_set_pins_with_mask(pio, sm, mask, mask);
+  pio_sm_set_pindirs_with_mask(pio, sm, mask, mask);
+  pio_gpio_init(pio, pin);
+
+  uint offset = pio_add_program(pio, &xpressnet_tx_program);
+
+  pio_sm_config c = xpressnet_tx_program_get_default_config(offset);
+
+  // OUT shifts to right, no autopull
+  sm_config_set_out_shift(&c, true, false, 32);
+
+  // We are mapping both OUT and side-set to the same pin, because sometimes
+  // we need to assert user data onto the pin (with OUT) and sometimes
+  // assert constant values (start/stop bit)
+  sm_config_set_out_pins(&c, pin, 1);
+  sm_config_set_sideset_pins(&c, pin);
+
+  // We only need TX, so get an 8-deep FIFO!
+  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+  // SM transmits 1 bit per 8 execution cycles.
+  float div = (float)clock_get_hz(clk_sys) / (8 * XPRESSNET_BAUDRATE);
+  sm_config_set_clkdiv(&c, div);
+
+  pio_sm_init(pio, sm, offset, &c);
+  pio_sm_set_enabled(pio, sm, true);
+}
+
+%}
