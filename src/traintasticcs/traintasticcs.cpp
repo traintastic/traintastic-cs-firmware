@@ -86,6 +86,11 @@ static void received()
 
   switch(message.command)
   {
+    case Command::Reset:
+      //! \todo disable/deinit/poweroff everything
+      send(ResetOk());
+      break;
+
     case Command::Ping:
       send(Pong());
       break;
