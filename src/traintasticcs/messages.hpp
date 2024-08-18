@@ -49,8 +49,17 @@ enum class Command : uint8_t
   Info = FROM_CS | GetInfo,
   ThrottleSetSpeedDirection = FROM_CS | 0x30,
   ThrottleSetFunctions = FROM_CS | 0x31,
+  Error = FROM_CS | 0x7F
 };
 #undef FROM_CS
+
+enum class ErrorCode : uint8_t
+{
+  // don't use zero, reserved for no error
+  Unknown = 1,
+  InvalidCommand = 2,
+  InvalidCommandPayload = 3,
+};
 
 struct Message
 {
@@ -229,6 +238,22 @@ struct ThrottleSetFunctions : ThrottleMessage
     functions[index] = (number & 0x7F) | (value ? 0x80 : 0x00);
   }
 };
+
+struct Error : Message
+{
+  Command request;
+  ErrorCode code;
+  Checksum checksum;
+
+  constexpr Error(Command request_, ErrorCode code_)
+    : Message(Command::Error, sizeof(Error) - sizeof(Message) - sizeof(checksum))
+    , request{request_}
+    , code{code_}
+    , checksum{static_cast<Checksum>(static_cast<uint8_t>(command) ^ length ^ static_cast<uint8_t>(request) ^ static_cast<uint8_t>(code))}
+  {
+  }
+};
+static_assert(sizeof(Error) == 5);
 
 inline Checksum calcChecksum(const Message& message)
 {

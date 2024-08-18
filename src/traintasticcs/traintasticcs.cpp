@@ -87,18 +87,31 @@ static void received()
   switch(message.command)
   {
     case Command::Reset:
+      if(message.length != 0)
+      {
+        return send(Error(message.command, ErrorCode::InvalidCommandPayload));
+      }
       //! \todo disable/deinit/poweroff everything
-      send(ResetOk());
-      break;
+      return send(ResetOk());
 
     case Command::Ping:
-      send(Pong());
-      break;
+      if(message.length != 0)
+      {
+        return send(Error(message.command, ErrorCode::InvalidCommandPayload));
+      }
+      return send(Pong());
 
     case Command::GetInfo:
-      send(Info(Board::TraintasticCS, 0, 1, 0));
-      break;
+    {
+      if(message.length != 0)
+      {
+        return send(Error(message.command, ErrorCode::InvalidCommandPayload));
+      }
+      return send(Info(Board::TraintasticCS, 0, 1, 0));
+    }
   }
+
+  send(Error(message.command, ErrorCode::InvalidCommand));
 }
 
 namespace Throttle
