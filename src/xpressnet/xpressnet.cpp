@@ -31,25 +31,65 @@
 
 namespace XpressNet {
 
-static uint g_smRx;
-static uint g_smTx;
+static bool g_enabled = false;
 static uint8_t g_address;
 static uint8_t g_rxBuffer[32];
-static uint8_t g_rxBufferCount = 0;
+static uint8_t g_rxBufferCount;
 
 static void received();
 
 void init()
 {
-  g_smRx = pio_claim_unused_sm(XPRESSNET_PIO, true);
-  g_smTx = pio_claim_unused_sm(XPRESSNET_PIO, true);
-  g_address = 0;
-
   gpio_init(XPRESSNET_PIN_TX_EN);
   gpio_set_dir(XPRESSNET_PIN_TX_EN, GPIO_OUT);
 
-  xpressnet_rx_program_init(XPRESSNET_PIO, g_smRx, XPRESSNET_PIN_RX);
-  xpressnet_tx_program_init(XPRESSNET_PIO, g_smTx, XPRESSNET_PIN_TX, XPRESSNET_PIN_TX_EN);
+  gpio_init(XPRESSNET_PIN_POWER);
+  gpio_set_dir(XPRESSNET_PIN_POWER, GPIO_OUT);
+
+  xpressnet_rx_program_init(XPRESSNET_PIO, XPRESSNET_SM_RX, XPRESSNET_PIN_RX);
+  xpressnet_tx_program_init(XPRESSNET_PIO, XPRESSNET_SM_TX, XPRESSNET_PIN_TX, XPRESSNET_PIN_TX_EN);
+}
+
+bool enabled()
+{
+  return g_enabled;
+}
+
+void enable()
+{
+  g_address = 0;
+  g_rxBufferCount = 0;
+
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_RX, false);
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_TX, false);
+
+  pio_sm_clear_fifos(XPRESSNET_PIO, XPRESSNET_SM_RX);
+  pio_sm_clear_fifos(XPRESSNET_PIO, XPRESSNET_SM_TX);
+
+  pio_sm_restart(XPRESSNET_PIO, XPRESSNET_SM_RX);
+  pio_sm_restart(XPRESSNET_PIO, XPRESSNET_SM_TX);
+
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_RX, true);
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_TX, true);
+
+  gpio_put(XPRESSNET_PIN_POWER, 1);
+
+  g_enabled = true;
+}
+
+void disable()
+{
+  if(!enabled())
+  {
+    return;
+  }
+
+  gpio_put(XPRESSNET_PIN_POWER, 0);
+
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_RX, false);
+  pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_TX, false);
+
+  g_enabled = false;
 }
 
 void sendCallByte(uint8_t value)
@@ -68,7 +108,7 @@ void sendCallByte(uint8_t value)
   }
 
   gpio_put(XPRESSNET_PIN_TX_EN, 1);
-  pio_sm_put(XPRESSNET_PIO, g_smTx, 0x0100u | value);
+  pio_sm_put(XPRESSNET_PIO, XPRESSNET_SM_TX, 0x0100u | value);
 
   sleep_us(190); // FIXME
   gpio_put(XPRESSNET_PIN_TX_EN, 0); // FIXME
@@ -96,14 +136,14 @@ void send(uint8_t callByte, const uint8_t* message)
 
   const uint8_t dataLength = message[0] & 0x0F;
   gpio_put(XPRESSNET_PIN_TX_EN, 1);
-  pio_sm_put(XPRESSNET_PIO, g_smTx, 0x0100u | callByte);
+  pio_sm_put(XPRESSNET_PIO, XPRESSNET_SM_TX, 0x0100u | callByte);
   uint8_t checksum = 0;
   for(uint8_t i = 0; i <= dataLength; ++i)
   {
-    pio_sm_put(XPRESSNET_PIO, g_smTx, message[i]);
+    pio_sm_put(XPRESSNET_PIO, XPRESSNET_SM_TX, message[i]);
     checksum ^= message[i];
   }
-  pio_sm_put(XPRESSNET_PIO, g_smTx, checksum);
+  pio_sm_put(XPRESSNET_PIO, XPRESSNET_SM_TX, checksum);
 
   sleep_us(190 * (3 + dataLength)); // FIXME
   gpio_put(XPRESSNET_PIN_TX_EN, 0); // FIXME
@@ -111,9 +151,14 @@ void send(uint8_t callByte, const uint8_t* message)
 
 void process()
 {
-  while(!pio_sm_is_rx_fifo_empty(XPRESSNET_PIO, g_smRx))
+  if(!g_enabled)
   {
-    uint16_t value = pio_sm_get(XPRESSNET_PIO, g_smRx) >> (32 - 9);
+    return;
+  }
+
+  while(!pio_sm_is_rx_fifo_empty(XPRESSNET_PIO, XPRESSNET_SM_RX))
+  {
+    uint16_t value = pio_sm_get(XPRESSNET_PIO, XPRESSNET_SM_RX) >> (32 - 9);
     if((value & 0x100) == 0) // data byte
     {
       g_rxBuffer[g_rxBufferCount] = static_cast<uint8_t>(value);
@@ -144,7 +189,7 @@ void process()
     }
   }
 
-  if(pio_sm_is_tx_fifo_empty(XPRESSNET_PIO, g_smTx))
+  if(pio_sm_is_tx_fifo_empty(XPRESSNET_PIO, XPRESSNET_SM_TX))
   {
     if(++g_address > 31)
     {

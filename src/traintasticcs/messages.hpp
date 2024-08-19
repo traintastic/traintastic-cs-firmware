@@ -42,11 +42,13 @@ enum class Command : uint8_t
   Reset = 0x00,
   Ping = 0x01,
   GetInfo = 0x02,
+  InitXpressNet = 0x03,
 
   // Traintatic CS -> Traintastic
   ResetOk = FROM_CS | Reset,
   Pong = FROM_CS | Ping,
   Info = FROM_CS | GetInfo,
+  InitXpressNetOk = FROM_CS | InitXpressNet,
   ThrottleSetSpeedDirection = FROM_CS | 0x30,
   ThrottleSetFunctions = FROM_CS | 0x31,
   Error = FROM_CS | 0x7F
@@ -59,6 +61,7 @@ enum class ErrorCode : uint8_t
   Unknown = 1,
   InvalidCommand = 2,
   InvalidCommandPayload = 3,
+  AlreadyInitialized = 4,
 };
 
 struct Message
@@ -151,6 +154,22 @@ struct Info : Message
     , versionMinor{minor}
     , versionPatch{patch}
     , checksum{static_cast<Checksum>(static_cast<uint8_t>(command) ^ length ^ static_cast<uint8_t>(board) ^ versionMajor ^ versionMinor ^ versionPatch)}
+  {
+  }
+};
+
+struct InitXpressNet : MessageNoData
+{
+  constexpr InitXpressNet()
+    : MessageNoData(Command::InitXpressNet)
+  {
+  }
+};
+
+struct InitXpressNetOk : MessageNoData
+{
+  constexpr InitXpressNetOk()
+    : MessageNoData(Command::InitXpressNetOk)
   {
   }
 };

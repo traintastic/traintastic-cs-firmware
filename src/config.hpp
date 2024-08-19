@@ -26,9 +26,12 @@
 #define TRAINTASTIC_CS_PIN_TX 1
 #define TRAINTASTIC_CS_UART uart0
 
+#define XPRESSNET_PIN_POWER PICO_DEFAULT_LED_PIN // LED for testing now
 #define XPRESSNET_PIN_RX 14
 #define XPRESSNET_PIN_TX 15
 #define XPRESSNET_PIN_TX_EN 16
 #define XPRESSNET_PIO pio0
+#define XPRESSNET_SM_RX 0
+#define XPRESSNET_SM_TX 1
 
 #endif

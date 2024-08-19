@@ -25,6 +25,9 @@
 namespace XpressNet {
 
 void init();
+bool enabled();
+void enable();
+void disable();
 void process();
 
 }

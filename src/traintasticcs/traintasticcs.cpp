@@ -27,6 +27,7 @@
 
 #include "../config.hpp"
 #include "messages.hpp"
+#include "../xpressnet/xpressnet.hpp"
 
 static constexpr uint32_t baudrate = 115'200;
 static uint8_t g_rxBuffer[2 + 255 + 1];
@@ -91,7 +92,7 @@ static void received()
       {
         return send(Error(message.command, ErrorCode::InvalidCommandPayload));
       }
-      //! \todo disable/deinit/poweroff everything
+      XpressNet::disable();
       return send(ResetOk());
 
     case Command::Ping:
@@ -109,6 +110,17 @@ static void received()
       }
       return send(Info(Board::TraintasticCS, 0, 1, 0));
     }
+    case Command::InitXpressNet:
+      if(message.length != 0)
+      {
+        return send(Error(message.command, ErrorCode::InvalidCommandPayload));
+      }
+      if(XpressNet::enabled())
+      {
+        return send(Error(message.command, ErrorCode::AlreadyInitialized));
+      }
+      XpressNet::enable();
+      return send(InitXpressNetOk());
   }
 
   send(Error(message.command, ErrorCode::InvalidCommand));
