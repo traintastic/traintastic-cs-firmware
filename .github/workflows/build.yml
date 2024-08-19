@@ -17,7 +17,7 @@ jobs:
               id: build
               uses: samyarsadat/Pico-Build-Action@v1
               with:
-                  source_dir: ""
+                  source_dir: "."
                   
             - name: Upload Build Artifacts
               uses: actions/upload-artifact@v4
