@@ -19,30 +19,14 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <pico/stdlib.h>
-#include <pico/binary_info.h>
+#ifndef UTILS_TIME_HPP
+#define UTILS_TIME_HPP
 
-#include "config.hpp"
-#include "traintasticcs/traintasticcs.hpp"
-#include "xpressnet/xpressnet.hpp"
+#include <pico/types.h>
 
-int main()
+inline bool operator>=(const absolute_time_t lhs, const absolute_time_t rhs)
 {
-  // Binary info:
-  bi_decl(bi_1pin_with_name(TRAINTASTIC_CS_PIN_RX, "Traintastic CS Rx"));
-  bi_decl(bi_1pin_with_name(TRAINTASTIC_CS_PIN_TX, "Traintastic CS Tx"));
-  bi_decl(bi_1pin_with_name(XPRESSNET_PIN_RX, "XpressNet Rx"));
-  bi_decl(bi_1pin_with_name(XPRESSNET_PIN_TX, "XpressNet Tx"));
-  bi_decl(bi_1pin_with_name(XPRESSNET_PIN_TX_EN, "XpressNet Tx enable"));
-
-  TraintasticCS::init();
-  XpressNet::init();
-
-  for(;;)
-  {
-    TraintasticCS::process();
-    XpressNet::process();
-    sleep_us(100); // FIXME: if lower, xpressnet rx fifo contains garbage
-  }
+  return to_us_since_boot(lhs) >= to_us_since_boot(rhs);
 }
 
+#endif

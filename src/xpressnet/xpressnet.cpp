@@ -28,6 +28,7 @@
 #include "../traintasticcs/traintasticcs.hpp"
 #include "../utils/bit.hpp"
 #include "../utils/endian.hpp"
+#include "../utils/time.hpp"
 
 namespace XpressNet {
 
@@ -35,6 +36,7 @@ static bool g_enabled = false;
 static uint8_t g_address;
 static uint8_t g_rxBuffer[32];
 static uint8_t g_rxBufferCount;
+static absolute_time_t g_nextNormalInquiry;
 
 static void received();
 
@@ -59,6 +61,7 @@ void enable()
 {
   g_address = 0;
   g_rxBufferCount = 0;
+  g_nextNormalInquiry = make_timeout_time_ms(1000);
 
   pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_RX, false);
   pio_sm_set_enabled(XPRESSNET_PIO, XPRESSNET_SM_TX, false);
@@ -158,6 +161,8 @@ void process()
 
   while(!pio_sm_is_rx_fifo_empty(XPRESSNET_PIO, XPRESSNET_SM_RX))
   {
+    g_nextNormalInquiry = at_the_end_of_time;
+
     uint16_t value = pio_sm_get(XPRESSNET_PIO, XPRESSNET_SM_RX) >> (32 - 9);
     if((value & 0x100) == 0) // data byte
     {
@@ -180,22 +185,25 @@ void process()
       if(checksum == g_rxBuffer[length - 1])
       {
         received();
-        g_rxBufferCount -= length;
       }
-      else
-      {
-        g_rxBufferCount = 0; // reset buffer, checksum invalid
-      }
+      g_rxBufferCount = 0;
+    }
+
+    if(g_rxBufferCount == 0)
+    {
+      g_nextNormalInquiry = make_timeout_time_us(25);
     }
   }
 
-  if(pio_sm_is_tx_fifo_empty(XPRESSNET_PIO, XPRESSNET_SM_TX))
+  if(pio_sm_is_tx_fifo_empty(XPRESSNET_PIO, XPRESSNET_SM_TX) &&
+      get_absolute_time() >= g_nextNormalInquiry)
   {
     if(++g_address > 31)
     {
       g_address = 1;
     }
     sendNormalInquiry(g_address);
+    g_nextNormalInquiry = make_timeout_time_us(120);
   }
 }
 
