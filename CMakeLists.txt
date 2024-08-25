@@ -18,8 +18,10 @@ pico_sdk_init()
 
 add_executable(traintastic-cs
   src/main.cpp
+  src/traintasticcs/input.cpp
   src/traintasticcs/traintasticcs.cpp
   src/xpressnet/xpressnet.cpp
+  src/s88/s88.cpp
 )
 
 pico_generate_pio_header(traintastic-cs

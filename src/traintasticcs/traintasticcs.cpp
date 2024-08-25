@@ -1,6 +1,6 @@
 /**
- * This file is part of the Traintastic CS RP2040 firmware,
- * see <https://github.com/traintastic/traintastic-cs-rp2040>.
+ * This file is part of the Traintastic CS firmware,
+ * see <https://github.com/traintastic/traintastic-cs-firmware>.
  *
  * Copyright (C) 2024 Reinder Feenstra
  *
@@ -27,6 +27,7 @@
 
 #include "../config.hpp"
 #include "messages.hpp"
+#include "../s88/s88.hpp"
 #include "../xpressnet/xpressnet.hpp"
 
 static constexpr uint32_t baudrate = 115'200;
@@ -71,7 +72,7 @@ void process()
   }
 }
 
-static void send(const Message& message)
+void send(const Message& message)
 {
   const auto* p = reinterpret_cast<const uint8_t*>(&message);
   const uint8_t* end = p + message.size();
@@ -92,6 +93,7 @@ static void received()
       {
         return send(Error(message.command, ErrorCode::InvalidCommandPayload));
       }
+      S88::disable();
       XpressNet::disable();
       return send(ResetOk());
 
@@ -121,6 +123,23 @@ static void received()
       }
       XpressNet::enable();
       return send(InitXpressNetOk());
+
+    case Command::InitS88:
+    {
+      const auto& initS88 = static_cast<const InitS88&>(message);
+      if(message.size() != sizeof(InitS88) ||
+          initS88.moduleCount < S88::moduleCountMin ||
+          initS88.moduleCount > S88::moduleCountMax)
+      {
+        return send(Error(message.command, ErrorCode::InvalidCommandPayload));
+      }
+      if(S88::enabled())
+      {
+        return send(Error(message.command, ErrorCode::AlreadyInitialized));
+      }
+      S88::enable(initS88.moduleCount);
+      return send(InitS88Ok());
+    }
   }
 
   send(Error(message.command, ErrorCode::InvalidCommand));

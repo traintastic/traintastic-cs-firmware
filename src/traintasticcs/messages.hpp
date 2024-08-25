@@ -1,6 +1,6 @@
 /**
- * This file is part of the Traintastic CS RP2040 firmware,
- * see <https://github.com/traintastic/traintastic-cs-rp2040>.
+ * This file is part of the Traintastic CS firmware,
+ * see <https://github.com/traintastic/traintastic-cs-firmware>.
  *
  * Copyright (C) 2024 Reinder Feenstra
  *
@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "../utils/byte.hpp"
+#include "types.hpp"
 #include "throttle/channel.hpp"
 
 namespace TraintasticCS {
@@ -43,12 +44,15 @@ enum class Command : uint8_t
   Ping = 0x01,
   GetInfo = 0x02,
   InitXpressNet = 0x03,
+  InitS88 = 0x04,
 
   // Traintatic CS -> Traintastic
   ResetOk = FROM_CS | Reset,
   Pong = FROM_CS | Ping,
   Info = FROM_CS | GetInfo,
   InitXpressNetOk = FROM_CS | InitXpressNet,
+  InitS88Ok = FROM_CS | InitS88,
+  InputStateChanged = FROM_CS | 0x20,
   ThrottleSetSpeedDirection = FROM_CS | 0x30,
   ThrottleSetFunctions = FROM_CS | 0x31,
   Error = FROM_CS | 0x7F
@@ -171,6 +175,51 @@ struct InitXpressNetOk : MessageNoData
   constexpr InitXpressNetOk()
     : MessageNoData(Command::InitXpressNetOk)
   {
+  }
+};
+
+struct InitS88 : Message
+{
+  uint8_t moduleCount;
+  Checksum checksum;
+
+  constexpr InitS88(uint8_t moduleCount_)
+    : Message(Command::InitS88, sizeof(InitS88) - sizeof(Message) - sizeof(checksum))
+    , moduleCount{moduleCount_}
+    , checksum{static_cast<Checksum>(static_cast<uint8_t>(command) ^ length ^ moduleCount)}
+  {
+  }
+};
+
+struct InitS88Ok : MessageNoData
+{
+  constexpr InitS88Ok()
+    : MessageNoData(Command::InitS88Ok)
+  {
+  }
+};
+
+struct InputStateChanged : Message
+{
+  InputChannel channel;
+  uint8_t addressH;
+  uint8_t addressL;
+  InputState state;
+  Checksum checksum;
+
+  constexpr InputStateChanged(InputChannel channel_, uint16_t address_, InputState state_)
+    : Message(Command::InputStateChanged, sizeof(InputStateChanged) - sizeof(Message) - sizeof(checksum))
+    , channel{channel_}
+    , addressH{high8(address_)}
+    , addressL{low8(address_)}
+    , state{state_}
+    , checksum{static_cast<Checksum>(static_cast<uint8_t>(command) ^ length ^ static_cast<uint8_t>(channel) ^ addressH ^ addressL ^ static_cast<uint8_t>(state))}
+  {
+  }
+
+  uint16_t address() const
+  {
+    return to16(addressL, addressH);
   }
 };
 

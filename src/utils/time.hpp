@@ -1,6 +1,6 @@
 /**
- * This file is part of the Traintastic CS RP2040 firmware,
- * see <https://github.com/traintastic/traintastic-cs-rp2040>.
+ * This file is part of the Traintastic CS firmware,
+ * see <https://github.com/traintastic/traintastic-cs-firmware>.
  *
  * Copyright (C) 2024 Reinder Feenstra
  *
@@ -28,6 +28,11 @@
 inline bool operator>=(const absolute_time_t lhs, const absolute_time_t rhs)
 {
   return to_us_since_boot(lhs) >= to_us_since_boot(rhs);
+}
+
+inline bool operator<(const absolute_time_t lhs, const absolute_time_t rhs)
+{
+  return to_us_since_boot(lhs) < to_us_since_boot(rhs);
 }
 #endif
 

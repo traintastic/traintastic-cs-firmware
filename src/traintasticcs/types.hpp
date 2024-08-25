@@ -1,6 +1,6 @@
 /**
- * This file is part of the Traintastic CS RP2040 firmware,
- * see <https://github.com/traintastic/traintastic-cs-rp2040>.
+ * This file is part of the Traintastic CS firmware,
+ * see <https://github.com/traintastic/traintastic-cs-firmware>.
  *
  * Copyright (C) 2024 Reinder Feenstra
  *
@@ -19,25 +19,28 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef TRAINTASTICCS_TYPES_HPP
+#define TRAINTASTICCS_TYPES_HPP
 
-#define TRAINTASTIC_CS_PIN_RX 0
-#define TRAINTASTIC_CS_PIN_TX 1
-#define TRAINTASTIC_CS_UART uart0
+#include <cstdint>
 
-//#define S88_PIN_POWER
-#define S88_PIN_RESET 13
-#define S88_PIN_LOAD 12
-#define S88_PIN_DATA 10
-#define S88_PIN_CLOCK 11
+namespace TraintasticCS
+{
 
-#define XPRESSNET_PIN_POWER PICO_DEFAULT_LED_PIN // LED for testing now
-#define XPRESSNET_PIN_RX 14
-#define XPRESSNET_PIN_TX 15
-#define XPRESSNET_PIN_TX_EN 16
-#define XPRESSNET_PIO pio0
-#define XPRESSNET_SM_RX 0
-#define XPRESSNET_SM_TX 1
+enum class InputChannel : uint8_t
+{
+  LocoNet = 1,
+  XpressNet = 2,
+  S88 = 3,
+};
+
+enum class InputState : uint8_t
+{
+  Unknown = 0,
+  Low = 1,
+  High = 2,
+};
+
+}
 
 #endif

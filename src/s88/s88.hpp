@@ -1,6 +1,6 @@
 /**
- * This file is part of the Traintastic CS RP2040 firmware,
- * see <https://github.com/traintastic/traintastic-cs-rp2040>.
+ * This file is part of the Traintastic CS firmware,
+ * see <https://github.com/traintastic/traintastic-cs-firmware>.
  *
  * Copyright (C) 2024 Reinder Feenstra
  *
@@ -19,25 +19,22 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef S88_S88_HPP
+#define S88_S88_HPP
 
-#define TRAINTASTIC_CS_PIN_RX 0
-#define TRAINTASTIC_CS_PIN_TX 1
-#define TRAINTASTIC_CS_UART uart0
+#include <cstdint>
 
-//#define S88_PIN_POWER
-#define S88_PIN_RESET 13
-#define S88_PIN_LOAD 12
-#define S88_PIN_DATA 10
-#define S88_PIN_CLOCK 11
+namespace S88 {
 
-#define XPRESSNET_PIN_POWER PICO_DEFAULT_LED_PIN // LED for testing now
-#define XPRESSNET_PIN_RX 14
-#define XPRESSNET_PIN_TX 15
-#define XPRESSNET_PIN_TX_EN 16
-#define XPRESSNET_PIO pio0
-#define XPRESSNET_SM_RX 0
-#define XPRESSNET_SM_TX 1
+constexpr uint8_t moduleCountMin = 1;
+constexpr uint8_t moduleCountMax = 16;
+
+void init();
+bool enabled();
+void enable(uint8_t moduleCount);
+void disable();
+void process();
+
+}
 
 #endif

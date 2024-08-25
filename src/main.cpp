@@ -23,12 +23,14 @@
 #include <pico/binary_info.h>
 
 #include "config.hpp"
+#include "s88/s88.hpp"
 #include "traintasticcs/traintasticcs.hpp"
 #include "xpressnet/xpressnet.hpp"
 
 int main()
 {
   // Binary info:
+  bi_decl(bi_1pin_with_name(S88_PIN_CLOCK, "S88 clock"));
   bi_decl(bi_1pin_with_name(TRAINTASTIC_CS_PIN_RX, "Traintastic CS Rx"));
   bi_decl(bi_1pin_with_name(TRAINTASTIC_CS_PIN_TX, "Traintastic CS Tx"));
   bi_decl(bi_1pin_with_name(XPRESSNET_PIN_RX, "XpressNet Rx"));
@@ -36,11 +38,13 @@ int main()
   bi_decl(bi_1pin_with_name(XPRESSNET_PIN_TX_EN, "XpressNet Tx enable"));
 
   TraintasticCS::init();
+  S88::init();
   XpressNet::init();
 
   for(;;)
   {
     TraintasticCS::process();
+    S88::process();
     XpressNet::process();
     sleep_us(100); // FIXME: if lower, xpressnet rx fifo contains garbage
   }
