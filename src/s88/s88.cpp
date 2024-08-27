@@ -20,36 +20,51 @@
  */
 
 #include "s88.hpp"
+#include "s88.pio.h"
+#include <algorithm>
 #include <pico/stdlib.h>
+#include <hardware/clocks.h>
+#include <hardware/pio.h>
 #include "../config.hpp"
 #include "../traintasticcs/input.hpp"
 #include "../utils/time.hpp"
-
-#define CLOCK_TICK 100 // us
 
 namespace S88 {
 
 static bool g_enabled = false;
 static uint16_t g_inputCount;
 static absolute_time_t g_nextScan;
+static uint g_fifoRead;
+static uint g_inputIndex;
+
+#define CLOCK_FREQUENCY 10000
 
 void init()
 {
   //gpio_init(S88_PIN_POWER);
   //gpio_set_dir(S88_PIN_POWER, GPIO_OUT);
 
-  gpio_init(S88_PIN_RESET);
-  gpio_set_dir(S88_PIN_RESET, GPIO_OUT);
+  // setup pio:
+  pio_gpio_init(S88_PIO, S88_PIN_DATA);
+  pio_gpio_init(S88_PIO, S88_PIN_CLOCK);
+  pio_gpio_init(S88_PIO, S88_PIN_LOAD);
+  pio_gpio_init(S88_PIO, S88_PIN_RESET);
 
-  gpio_init(S88_PIN_LOAD);
-  gpio_set_dir(S88_PIN_LOAD, GPIO_OUT);
+  pio_sm_set_consecutive_pindirs(S88_PIO, S88_SM, S88_PIN_CLOCK, 3, true);
 
-  gpio_init(S88_PIN_DATA);
-  gpio_set_dir(S88_PIN_DATA, GPIO_IN);
+  uint offset = pio_add_program(S88_PIO, &s88_program);
+  pio_sm_config c = s88_program_get_default_config(offset);
 
-  gpio_init(S88_PIN_CLOCK);
-  gpio_set_dir(S88_PIN_CLOCK, GPIO_OUT);
-  gpio_put(S88_PIN_CLOCK, 1);
+  sm_config_set_set_pins(&c, S88_PIN_CLOCK, 3);
+  sm_config_set_sideset_pins(&c, S88_PIN_CLOCK);
+  sm_config_set_in_pins(&c, S88_PIN_DATA);
+
+  sm_config_set_out_shift(&c, true, true, 32); // right shift, autopush
+
+  float div = (float)clock_get_hz(clk_sys) / (4 * CLOCK_FREQUENCY);
+  sm_config_set_clkdiv(&c, div);
+
+  pio_sm_init(S88_PIO, S88_SM, offset, &c);
 }
 
 bool enabled()
@@ -61,9 +76,18 @@ void enable(uint8_t moduleCount)
 {
   //gpio_put(S88_PIN_POWER, 1);
 
+  pio_sm_set_enabled(S88_PIO, S88_SM, false);
+
+  pio_sm_clear_fifos(S88_PIO, S88_SM);
+
+  pio_sm_restart(S88_PIO, S88_SM);
+
+  pio_sm_set_enabled(S88_PIO, S88_SM, true);
+
   g_inputCount = moduleCount * 8;
   g_enabled = true;
   g_nextScan = make_timeout_time_ms(1000);
+  g_fifoRead = 0;
 }
 
 void disable()
@@ -85,46 +109,38 @@ void process()
     return;
   }
 
-  // bit bang test, verify if we can read it
+  constexpr uint wordSize = 32;
 
-  gpio_put(S88_PIN_CLOCK, 0);
-  sleep_us(CLOCK_TICK * 2);
-  gpio_put(S88_PIN_LOAD, 1);
-  sleep_us(CLOCK_TICK);
-  gpio_put(S88_PIN_CLOCK, 1);
-  sleep_us(CLOCK_TICK);
-  gpio_put(S88_PIN_CLOCK, 0);
-  sleep_us(CLOCK_TICK);
-  gpio_put(S88_PIN_RESET, 1);
-  sleep_us(CLOCK_TICK);
-  gpio_put(S88_PIN_RESET, 0);
-  sleep_us(CLOCK_TICK);
-  gpio_put(S88_PIN_LOAD, 0);
-
-  TraintasticCS::Input::updateState(
-    TraintasticCS::InputChannel::S88,
-    1,
-    gpio_get(S88_PIN_DATA) ? TraintasticCS::InputState::High : TraintasticCS::InputState::Low);
-
-  sleep_us(CLOCK_TICK);
-
-  for(uint8_t address = 2; address <= g_inputCount; ++address)
+  while(g_fifoRead != 0 && !pio_sm_is_rx_fifo_empty(S88_PIO, S88_SM))
   {
-    gpio_put(S88_PIN_CLOCK, 1);
-    sleep_us(CLOCK_TICK);
+    auto value = pio_sm_get(S88_PIO, S88_SM);
+    uint bitsToRead = std::min(g_inputCount - g_inputIndex, wordSize);
 
-    TraintasticCS::Input::updateState(
-      TraintasticCS::InputChannel::S88,
-      address,
-      gpio_get(S88_PIN_DATA) ? TraintasticCS::InputState::High : TraintasticCS::InputState::Low);
+    if(bitsToRead < wordSize)
+    {
+      // values are shifted in form the right, align them left
+      value >>= wordSize - bitsToRead;
+    }
 
-    gpio_put(S88_PIN_CLOCK, 0);
-    sleep_us(CLOCK_TICK);
+    for(;bitsToRead != 0; --bitsToRead)
+    {
+      TraintasticCS::Input::updateState(
+        TraintasticCS::InputChannel::S88,
+        1 + g_inputIndex,
+        (value & 1) ? TraintasticCS::InputState::High : TraintasticCS::InputState::Low);
+      value >>= 1;
+      g_inputIndex++;
+    }
+
+    g_fifoRead--;
   }
 
-  gpio_put(S88_PIN_CLOCK, 1);
-
-  g_nextScan = make_timeout_time_ms(10);
+  if(g_fifoRead == 0) // trigger next scan
+  {
+    pio_sm_put(S88_PIO, S88_SM, g_inputCount - 2);
+    g_fifoRead = 1 + (g_inputCount / wordSize); // round up, at multiple of wordSize there is a dummy push
+    g_inputIndex = 0;
+  }
 }
 
 }

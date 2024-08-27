@@ -27,6 +27,7 @@ add_executable(traintastic-cs
 pico_generate_pio_header(traintastic-cs
   ${CMAKE_CURRENT_LIST_DIR}/src/xpressnet/xpressnet.pio
 )
+pico_generate_pio_header(traintastic-cs ${CMAKE_CURRENT_LIST_DIR}/src/s88/s88.pio)
 
 # pull in common dependencies
 target_link_libraries(traintastic-cs

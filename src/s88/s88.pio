@@ -1,0 +1,37 @@
+;
+; This file is part of the Traintastic CS firmware,
+; see <https://github.com/traintastic/traintastic-cs-firmware>.
+;
+; Copyright (C) 2024 Reinder Feenstra
+;
+; This program is free software; you can redistribute it and/or
+; modify it under the terms of the GNU General Public License
+; as published by the Free Software Foundation; either version 2
+; of the License, or (at your option) any later version.
+;
+; This program is distributed in the hope that it will be useful,
+; but WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with this program; if not, write to the Free Software
+; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+.program s88
+.side_set 1 opt
+
+  pull                  ; get number of bits to read
+  mov x, osr            ; set x to number of bits to read
+  set pins, 0b010 [1]   ; load high
+  set pins, 0b011 [1]   ; clock high
+  in pins, 1   side 0   ; sample bit, clock low
+  set pins, 0b110 [1]   ; reset high
+  set pins, 0b010 [1]   ; reset low
+  set pins, 0b000 [1]   ; load low
+loop:
+  set pins, 0b001 [1]   ; clock high
+  in pins, 1   side 0   ; sample bit, clock low
+  jmp x-- loop          ; loop until a bits are sampled
+  set pins, 0b001       ; clock high
+  push                  ; push the remaining bits

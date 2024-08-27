@@ -27,10 +27,12 @@
 #define TRAINTASTIC_CS_UART uart0
 
 //#define S88_PIN_POWER
-#define S88_PIN_RESET 13
-#define S88_PIN_LOAD 12
 #define S88_PIN_DATA 10
 #define S88_PIN_CLOCK 11
+#define S88_PIN_LOAD 12
+#define S88_PIN_RESET 13
+#define S88_PIO pio0
+#define S88_SM 2
 
 #define XPRESSNET_PIN_POWER PICO_DEFAULT_LED_PIN // LED for testing now
 #define XPRESSNET_PIN_RX 14
