@@ -28,10 +28,12 @@ namespace S88 {
 
 constexpr uint8_t moduleCountMin = 1;
 constexpr uint8_t moduleCountMax = 16;
+constexpr uint8_t clockFrequencyMin = 1; // kHz
+constexpr uint8_t clockFrequencyMax = 250; // kHz
 
 void init();
 bool enabled();
-void enable(uint8_t moduleCount);
+void enable(uint8_t moduleCount, uint8_t clockFrequency);
 void disable();
 void process();
 

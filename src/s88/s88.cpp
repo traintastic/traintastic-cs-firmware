@@ -32,12 +32,12 @@
 namespace S88 {
 
 static bool g_enabled = false;
+static uint g_offset;
+static pio_sm_config g_config;
 static uint16_t g_inputCount;
 static absolute_time_t g_nextScan;
 static uint g_fifoRead;
 static uint g_inputIndex;
-
-#define CLOCK_FREQUENCY 10000
 
 void init()
 {
@@ -52,19 +52,14 @@ void init()
 
   pio_sm_set_consecutive_pindirs(S88_PIO, S88_SM, S88_PIN_CLOCK, 3, true);
 
-  uint offset = pio_add_program(S88_PIO, &s88_program);
-  pio_sm_config c = s88_program_get_default_config(offset);
+  g_offset = pio_add_program(S88_PIO, &s88_program);
+  g_config = s88_program_get_default_config(g_offset);
 
-  sm_config_set_set_pins(&c, S88_PIN_CLOCK, 3);
-  sm_config_set_sideset_pins(&c, S88_PIN_CLOCK);
-  sm_config_set_in_pins(&c, S88_PIN_DATA);
+  sm_config_set_set_pins(&g_config, S88_PIN_CLOCK, 3);
+  sm_config_set_sideset_pins(&g_config, S88_PIN_CLOCK);
+  sm_config_set_in_pins(&g_config, S88_PIN_DATA);
 
-  sm_config_set_out_shift(&c, true, true, 32); // right shift, autopush
-
-  float div = (float)clock_get_hz(clk_sys) / (4 * CLOCK_FREQUENCY);
-  sm_config_set_clkdiv(&c, div);
-
-  pio_sm_init(S88_PIO, S88_SM, offset, &c);
+  sm_config_set_out_shift(&g_config, true, true, 32); // right shift, autopush
 }
 
 bool enabled()
@@ -72,15 +67,16 @@ bool enabled()
   return g_enabled;
 }
 
-void enable(uint8_t moduleCount)
+void enable(uint8_t moduleCount, uint8_t clockFrequency)
 {
   //gpio_put(S88_PIN_POWER, 1);
 
   pio_sm_set_enabled(S88_PIO, S88_SM, false);
 
-  pio_sm_clear_fifos(S88_PIO, S88_SM);
+  const float div = (float)clock_get_hz(clk_sys) / (4 * clockFrequency * 1000);
+  sm_config_set_clkdiv(&g_config, div);
 
-  pio_sm_restart(S88_PIO, S88_SM);
+  pio_sm_init(S88_PIO, S88_SM, g_offset, &g_config);
 
   pio_sm_set_enabled(S88_PIO, S88_SM, true);
 

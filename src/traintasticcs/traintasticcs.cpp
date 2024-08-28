@@ -129,7 +129,9 @@ static void received()
       const auto& initS88 = static_cast<const InitS88&>(message);
       if(message.size() != sizeof(InitS88) ||
           initS88.moduleCount < S88::moduleCountMin ||
-          initS88.moduleCount > S88::moduleCountMax)
+          initS88.moduleCount > S88::moduleCountMax ||
+          initS88.clockFrequency < S88::clockFrequencyMin ||
+          initS88.clockFrequency > S88::clockFrequencyMax)
       {
         return send(Error(message.command, ErrorCode::InvalidCommandPayload));
       }
@@ -137,7 +139,7 @@ static void received()
       {
         return send(Error(message.command, ErrorCode::AlreadyInitialized));
       }
-      S88::enable(initS88.moduleCount);
+      S88::enable(initS88.moduleCount, initS88.clockFrequency);
       return send(InitS88Ok());
     }
   }
