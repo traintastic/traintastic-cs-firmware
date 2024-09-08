@@ -29,10 +29,22 @@
 #include "messages.hpp"
 #include "../s88/s88.hpp"
 #include "../xpressnet/xpressnet.hpp"
+#include "../utils/time.hpp"
+
+#ifndef NDEBUG
+  #define DISABLE_COMMUNICATION_TIMEOUT
+#endif
 
 static constexpr uint32_t baudrate = 115'200;
+#ifndef DISABLE_COMMUNICATION_TIMEOUT
+static constexpr uint32_t communicationTimeout = 2'000; // 2 sec
+#endif
+
 static uint8_t g_rxBuffer[2 + 255 + 1];
 static uint8_t g_rxCount = 0;
+#ifndef DISABLE_COMMUNICATION_TIMEOUT
+static absolute_time_t g_communicationTimeout = at_the_end_of_time;
+#endif
 
 namespace TraintasticCS
 {
@@ -46,6 +58,15 @@ void init()
   gpio_set_function(TRAINTASTIC_CS_PIN_RX, GPIO_FUNC_UART);
 
   uart_getc(TRAINTASTIC_CS_UART); // FIXME: why do we receive 0xFF at startup ??
+}
+
+static void reset()
+{
+  S88::disable();
+  XpressNet::disable();
+#ifndef DISABLE_COMMUNICATION_TIMEOUT
+  g_communicationTimeout = at_the_end_of_time;
+#endif
 }
 
 void process()
@@ -70,6 +91,14 @@ void process()
       }
     }
   }
+
+#ifndef DISABLE_COMMUNICATION_TIMEOUT
+  if(get_absolute_time() >= g_communicationTimeout)
+  {
+    // No communication from the host -> reset
+    reset();
+  }
+#endif
 }
 
 void send(const Message& message)
@@ -86,6 +115,10 @@ static void received()
 {
   const auto& message = *reinterpret_cast<const Message*>(g_rxBuffer);
 
+#ifndef DISABLE_COMMUNICATION_TIMEOUT
+  g_communicationTimeout = make_timeout_time_ms(communicationTimeout);
+#endif
+
   switch(message.command)
   {
     case Command::Reset:
@@ -93,8 +126,7 @@ static void received()
       {
         return send(Error(message.command, ErrorCode::InvalidCommandPayload));
       }
-      S88::disable();
-      XpressNet::disable();
+      reset();
       return send(ResetOk());
 
     case Command::Ping:
