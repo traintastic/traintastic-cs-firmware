@@ -24,7 +24,7 @@
 
 #include <pico/types.h>
 
-#ifndef NDEBUG
+#if PICO_OPAQUE_ABSOLUTE_TIME_T
 inline bool operator>=(const absolute_time_t lhs, const absolute_time_t rhs)
 {
   return to_us_since_boot(lhs) >= to_us_since_boot(rhs);
