@@ -24,7 +24,7 @@ add_executable(traintastic-cs
   src/s88/s88.cpp
 )
 
-set_property(TARGET traintastic-cs PROPERTY OUTPUT_NAME traintastic-cs-${PICO_PLATFORM})
+set_property(TARGET traintastic-cs PROPERTY OUTPUT_NAME traintastic-cs-${PICO_BOARD})
 
 pico_generate_pio_header(traintastic-cs
   ${CMAKE_CURRENT_LIST_DIR}/src/xpressnet/xpressnet.pio

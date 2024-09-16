@@ -8,6 +8,14 @@ jobs:
         runs-on: ubuntu-latest
         permissions:
             contents: read
+        strategy:
+          fail-fast: false
+          matrix:
+            config:
+              - name: "Pico"
+                board_name: pico
+              - name: "Pico 2"
+                board_name: pico2
 
         steps:
             - name: Checkout
@@ -18,7 +26,8 @@ jobs:
               uses: samyarsadat/Pico-Build-Action@v1
               with:
                   source_dir: "."
-                  
+                  board_name: ${{matrix.config.board_name}}
+
             - name: Upload Build Artifacts
               uses: actions/upload-artifact@v4
               with:
