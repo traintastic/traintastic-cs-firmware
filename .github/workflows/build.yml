@@ -31,5 +31,5 @@ jobs:
             - name: Upload Build Artifacts
               uses: actions/upload-artifact@v4
               with:
-                  name: workspace_artifacts
+                  name: traintastic-cs-${{matrix.config.board_name}}
                   path: ${{steps.build.outputs.output_dir}}
